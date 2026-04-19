@@ -14,7 +14,8 @@ export default function HomePage() {
 
   const [countryName, setCountryName] = useState("");
   const [countryDescription, setCountryDescription] = useState("");
-  const [countryImageUrl, setCountryImageUrl] = useState("");
+  const [highlightDescription, setHighlightDescription] = useState("");
+  const [trainingFile, setTrainingFile] = useState<File | null>(null);
   const [trainingLoading, setTrainingLoading] = useState(false);
   const [trainingMessage, setTrainingMessage] = useState<string | null>(null);
 
@@ -51,6 +52,24 @@ export default function HomePage() {
     setTrainingMessage(null);
 
     try {
+      if (!trainingFile) {
+        throw new Error("Сначала загрузи картинку страны");
+      }
+
+      const uploadForm = new FormData();
+      uploadForm.append("file", trainingFile);
+
+      const uploadRes = await fetch("/api/upload-training-image", {
+        method: "POST",
+        body: uploadForm
+      });
+
+      const uploadData = await uploadRes.json();
+
+      if (!uploadRes.ok) {
+        throw new Error(uploadData?.error || "Ошибка загрузки картинки");
+      }
+
       const res = await fetch("/api/training-example", {
         method: "POST",
         headers: {
@@ -58,8 +77,8 @@ export default function HomePage() {
         },
         body: JSON.stringify({
           countryName,
-          description: countryDescription,
-          imageUrl: countryImageUrl
+          description: [countryDescription, highlightDescription].filter(Boolean).join(" | "),
+          imageUrl: uploadData.publicUrl
         })
       });
 
@@ -69,10 +88,11 @@ export default function HomePage() {
         throw new Error(data?.error || "Ошибка сохранения примера");
       }
 
-      setTrainingMessage("Пример сохранён. Теперь ИИ сможет использовать его как обучающий ориентир.");
+      setTrainingMessage("Пример сохранён. ИИ будет считать самый выделенный цвет главным ориентиром страны, а тусклые области — окружением и фоном.");
       setCountryName("");
       setCountryDescription("");
-      setCountryImageUrl("");
+      setHighlightDescription("");
+      setTrainingFile(null);
     } catch (e: any) {
       setTrainingMessage(e.message || "Ошибка обучения");
     } finally {
@@ -158,7 +178,7 @@ export default function HomePage() {
           <section className="panel">
             <div className="sectionTitle">Обучение ИИ на примере страны</div>
             <p className="helpText">
-              Дай ссылку на картинку страны, желательно вид сверху в духе Google Maps или политической карты, и опиши страну. ИИ сохранит это как ориентир для будущих генераций.
+              Загрузи картинку одной страны. Лучше, чтобы сама страна была выделена ярче, а остальное — тусклее. Тогда ИИ поймёт, какой цвет главный, где сама территория, а где окружение.
             </p>
 
             <input
@@ -168,19 +188,33 @@ export default function HomePage() {
               placeholder="Что за страна? Например: Казахстан"
             />
 
-            <input
-              value={countryImageUrl}
-              onChange={(e) => setCountryImageUrl(e.target.value)}
-              className="textInput"
-              placeholder="Ссылка на картинку страны"
-            />
+            <label className="uploadBox">
+              <span className="uploadTitle">Загрузить фото страны</span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hiddenFileInput"
+                onChange={(e) => setTrainingFile(e.target.files?.[0] || null)}
+              />
+              <span className="uploadHint">
+                {trainingFile ? `Файл: ${trainingFile.name}` : "Нажми и выбери картинку"}
+              </span>
+            </label>
 
             <textarea
               value={countryDescription}
               onChange={(e) => setCountryDescription(e.target.value)}
-              rows={6}
+              rows={5}
               className="promptInput"
-              placeholder="Описание: форма, вода, крупные особенности, размер, соседние зоны"
+              placeholder="Описание страны: форма, вода, размер, вытянутость, особенности территории"
+            />
+
+            <textarea
+              value={highlightDescription}
+              onChange={(e) => setHighlightDescription(e.target.value)}
+              rows={4}
+              className="promptInput"
+              placeholder="Опиши, какой цвет выделяет страну и что вокруг тусклое. Например: страна выделена ярко-зелёным, а соседние территории и море бледные"
             />
 
             <button
