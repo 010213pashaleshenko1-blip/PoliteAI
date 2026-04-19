@@ -1,0 +1,3 @@
+# PoliteAI
+
+PoliteAI monorepo bootstrap.
