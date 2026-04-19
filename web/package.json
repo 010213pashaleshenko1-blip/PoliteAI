@@ -9,7 +9,6 @@
     "start": "next start"
   },
   "dependencies": {
-    "@politeai/model": "file:../model",
     "next": "14.2.5",
     "react": "18.3.1",
     "react-dom": "18.3.1"
