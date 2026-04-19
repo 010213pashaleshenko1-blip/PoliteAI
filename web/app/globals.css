@@ -121,6 +121,32 @@ img {
   padding: 12px;
 }
 
+.uploadBox {
+  display: block;
+  margin-bottom: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px dashed #4c67a8;
+  background: #0f1730;
+  cursor: pointer;
+}
+
+.uploadTitle {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.uploadHint {
+  display: block;
+  opacity: 0.82;
+  line-height: 1.4;
+}
+
+.hiddenFileInput {
+  display: none;
+}
+
 .toggleRow {
   display: flex;
   align-items: center;
