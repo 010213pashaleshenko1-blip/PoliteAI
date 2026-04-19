@@ -78,6 +78,22 @@ img {
   padding: 12px;
 }
 
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #243056;
+  border-radius: 12px;
+  background: #0d1328;
+}
+
+.toggleRow input {
+  width: 18px;
+  height: 18px;
+}
+
 .generateButton {
   margin-top: 12px;
   width: 100%;
@@ -93,6 +109,37 @@ img {
 .generateButton:disabled {
   background: #4f628f;
   cursor: default;
+}
+
+.statusCard {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #11204a, #0d1633);
+  border: 1px solid #2d4f9d;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.statusDot {
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: #7ea2ff;
+  box-shadow: 0 0 0 0 rgba(126, 162, 255, 0.8);
+  animation: politePulse 1.4s infinite;
+}
+
+.statusTitle {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.statusText {
+  opacity: 0.85;
+  line-height: 1.45;
 }
 
 .debugBlock {
@@ -122,6 +169,21 @@ img {
   opacity: 0.7;
   text-align: center;
   padding: 20px;
+}
+
+@keyframes politePulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(126, 162, 255, 0.7);
+  }
+  70% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 10px rgba(126, 162, 255, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(126, 162, 255, 0);
+  }
 }
 
 @media (min-width: 900px) {
