@@ -43,11 +43,38 @@ img {
   line-height: 1.5;
 }
 
+.tabsRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.tabButton {
+  border: 1px solid #2d3d67;
+  background: #11182f;
+  color: #dbe7ff;
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.tabButtonActive {
+  background: #6b8cff;
+  color: #fff;
+  border-color: #6b8cff;
+}
+
 .appGrid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
   align-items: start;
+}
+
+.singleColumnLayout {
+  display: block;
 }
 
 .panel {
@@ -67,10 +94,26 @@ img {
   margin-bottom: 8px;
 }
 
+.helpText {
+  opacity: 0.82;
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
 .promptInput {
   width: 100%;
   min-height: 170px;
   resize: vertical;
+  border-radius: 12px;
+  border: 1px solid #354574;
+  background: #0f1530;
+  color: #fff;
+  padding: 12px;
+}
+
+.textInput {
+  width: 100%;
+  margin-bottom: 12px;
   border-radius: 12px;
   border: 1px solid #354574;
   background: #0f1530;
@@ -142,6 +185,15 @@ img {
   line-height: 1.45;
 }
 
+.infoMessage {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #2d4f9d;
+  background: #10203d;
+  line-height: 1.45;
+}
+
 .debugBlock {
   margin-top: 14px;
   padding: 12px;
@@ -169,6 +221,10 @@ img {
   opacity: 0.7;
   text-align: center;
   padding: 20px;
+}
+
+.compactEmptyState {
+  min-height: 180px;
 }
 
 @keyframes politePulse {
@@ -202,5 +258,9 @@ img {
 
   .emptyState {
     min-height: 600px;
+  }
+
+  .compactEmptyState {
+    min-height: 220px;
   }
 }
