@@ -1,0 +1,14 @@
+{
+  "name": "politeai-monorepo",
+  "private": true,
+  "workspaces": [
+    "model",
+    "web"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace web run dev",
+    "build:web": "npm --workspace web run build",
+    "start:web": "npm --workspace web run start",
+    "build:model": "npm --workspace model run build"
+  }
+}
