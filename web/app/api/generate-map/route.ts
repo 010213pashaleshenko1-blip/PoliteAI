@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { runBrain } from "../../../lib/brain";
+import { insertBrainMemory } from "../../../lib/supabase";
 
 type MapRegion = "world" | "europe" | "asia" | "africa";
 type MapStyle = "minimal" | "atlas" | "dark" | "school";
@@ -23,62 +25,24 @@ interface CountryShape {
   labelY: number;
 }
 
-function detectRegion(text: string): MapRegion {
-  if (/(европ|europe)/i.test(text)) return "europe";
-  if (/(ази|asia)/i.test(text)) return "asia";
-  if (/(африк|africa)/i.test(text)) return "africa";
+function mapTargetToRegion(target: string | null): MapRegion {
+  if (target === "europe") return "europe";
+  if (target === "asia" || target === "russia" || target === "kazakhstan") return "asia";
+  if (target === "africa") return "africa";
   return "world";
 }
 
-function detectStyle(text: string): MapStyle {
-  if (/(минимал|minimal)/i.test(text)) return "minimal";
-  if (/(атлас|atlas)/i.test(text)) return "atlas";
-  if (/(темн|dark)/i.test(text)) return "dark";
-  if (/(школь|school)/i.test(text)) return "school";
+function mapStyle(input: string | null): MapStyle {
+  if (input === "atlas") return "atlas";
+  if (input === "dark") return "dark";
+  if (input === "school") return "school";
   return "minimal";
 }
 
-function detectLabels(text: string): boolean {
-  return /(подпис|label|назван)/i.test(text);
-}
-
-function detectColorfulness(text: string): number {
-  if (/(мягк|soft|pastel)/i.test(text)) return 0.45;
-  if (/(ярк|bright|colorful)/i.test(text)) return 0.95;
-  return 0.7;
-}
-
-function detectVariation(text: string): number {
-  if (/(слегк|чуть|немного)/i.test(text)) return 0.28;
-  if (/(сильно|очень|жестко)/i.test(text)) return 0.85;
-  return 0.5;
-}
-
-function detectWater(text: string, withWater?: boolean): boolean {
-  if (typeof withWater === "boolean") return withWater;
-  if (/(без воды|no water)/i.test(text)) return false;
-  return /(вода|океан|море|sea|ocean|water)/i.test(text);
-}
-
-function detectIntelligence(text: string): number {
-  let score = 0.5;
-  if (/(детал|detail|качеств|quality)/i.test(text)) score += 0.15;
-  if (/(нейрон|ai|ии|умн)/i.test(text)) score += 0.2;
-  if (/(реальн|realistic|точн)/i.test(text)) score += 0.1;
-  return Math.min(score, 1);
-}
-
-function parsePrompt(prompt: string, withWater?: boolean): ParsedPrompt {
-  return {
-    originalPrompt: prompt,
-    region: detectRegion(prompt),
-    style: detectStyle(prompt),
-    labels: detectLabels(prompt),
-    colorfulness: detectColorfulness(prompt),
-    variation: detectVariation(prompt),
-    withWater: detectWater(prompt, withWater),
-    intelligence: detectIntelligence(prompt)
-  };
+function estimateColorfulness(prompt: string, intelligence: number): number {
+  if (/(мягк|soft|pastel)/i.test(prompt)) return 0.45;
+  if (/(ярк|bright|colorful)/i.test(prompt)) return 0.95;
+  return Math.min(0.6 + intelligence * 0.2, 0.95);
 }
 
 function getStylePreset(style: MapStyle, withWater: boolean) {
@@ -140,7 +104,8 @@ const COUNTRY_SHAPES: CountryShape[] = [
   { id: "south-africa", name: "South Africa", region: "africa", points: "312,590 388,585 430,622 408,670 330,675 288,638", labelX: 360, labelY: 628 }
 ];
 
-function getShapesForRegion(region: MapRegion) {
+function getShapesForRegion(region: MapRegion, target: string | null) {
+  if (target === "kazakhstan") return COUNTRY_SHAPES.filter((shape) => shape.id === "kazakhstan");
   if (region === "world") return COUNTRY_SHAPES;
   return COUNTRY_SHAPES.filter((shape) => shape.region === region);
 }
@@ -200,45 +165,38 @@ function varyPolygon(points: string, rand: () => number, variation: number, inte
 
 function createWaterPaths(region: MapRegion, rand: () => number) {
   const jitter = () => (rand() - 0.5) * 12;
-
   if (region === "europe") {
     return [
       `M 70 ${135 + jitter()} C 180 ${100 + jitter()}, 290 ${115 + jitter()}, 380 ${150 + jitter()} S 560 ${210 + jitter()}, 640 ${180 + jitter()} L 640 80 L 70 80 Z`,
       `M 60 ${340 + jitter()} C 150 ${300 + jitter()}, 250 ${295 + jitter()}, 355 ${325 + jitter()} S 520 ${370 + jitter()}, 650 ${350 + jitter()} L 650 520 L 60 520 Z`
     ];
   }
-
   if (region === "asia") {
     return [
       `M 470 ${120 + jitter()} C 610 ${80 + jitter()}, 790 ${95 + jitter()}, 910 ${160 + jitter()} L 910 50 L 470 50 Z`,
       `M 760 ${300 + jitter()} C 850 ${320 + jitter()}, 920 ${390 + jitter()}, 950 ${480 + jitter()} L 950 680 L 760 680 Z`
     ];
   }
-
   if (region === "africa") {
     return [
       `M 120 ${300 + jitter()} C 160 ${250 + jitter()}, 220 ${220 + jitter()}, 270 ${250 + jitter()} L 270 680 L 120 680 Z`,
       `M 430 ${250 + jitter()} C 520 ${260 + jitter()}, 610 ${330 + jitter()}, 670 ${430 + jitter()} L 670 680 L 430 680 Z`
     ];
   }
-
   return [
     `M 0 70 C 220 20, 440 120, 670 80 S 900 40, 1000 100 L 1000 0 L 0 0 Z`,
     `M 0 620 C 190 570, 330 655, 520 610 S 790 560, 1000 630 L 1000 700 L 0 700 Z`
   ];
 }
 
-function generateMapSvg(parsed: ParsedPrompt): string {
+function generateMapSvg(parsed: ParsedPrompt, target: string | null): string {
   const width = 1000;
   const height = 700;
   const preset = getStylePreset(parsed.style, parsed.withWater);
-  const shapes = getShapesForRegion(parsed.region);
-  const seed = hashString(parsed.originalPrompt + String(parsed.withWater));
+  const shapes = getShapesForRegion(parsed.region, target);
+  const seed = hashString(parsed.originalPrompt + String(parsed.withWater) + String(target));
   const rand = mulberry32(seed);
-
-  const title = parsed.region === "world"
-    ? "World Political Map"
-    : `${parsed.region[0].toUpperCase()}${parsed.region.slice(1)} Political Map`;
+  const title = target ? `${target[0].toUpperCase()}${target.slice(1)} Political Map` : parsed.region === "world" ? "World Political Map" : `${parsed.region[0].toUpperCase()}${parsed.region.slice(1)} Political Map`;
 
   const waterPaths = parsed.withWater
     ? createWaterPaths(parsed.region, rand)
@@ -254,24 +212,9 @@ function generateMapSvg(parsed: ParsedPrompt): string {
       const points = varyPolygon(shape.points, rand, parsed.variation, parsed.intelligence);
       const shadowDx = ((rand() - 0.5) * 3).toFixed(1);
       const shadowDy = ((rand() - 0.5) * 3).toFixed(1);
-
       return `
-        <polygon
-          points="${points}"
-          fill="${fill}"
-          stroke="${preset.border}"
-          stroke-width="2"
-          stroke-linejoin="round"
-          transform="translate(${shadowDx}, ${shadowDy})"
-          opacity="0.18"
-        />
-        <polygon
-          points="${points}"
-          fill="${fill}"
-          stroke="${preset.border}"
-          stroke-width="2"
-          stroke-linejoin="round"
-        />
+        <polygon points="${points}" fill="${fill}" stroke="${preset.border}" stroke-width="2" stroke-linejoin="round" transform="translate(${shadowDx}, ${shadowDy})" opacity="0.18" />
+        <polygon points="${points}" fill="${fill}" stroke="${preset.border}" stroke-width="2" stroke-linejoin="round" />
         ${parsed.labels ? `<text x="${shape.labelX}" y="${shape.labelY}" font-size="14" text-anchor="middle" fill="${preset.label}" font-family="Arial, sans-serif" font-weight="700">${shape.name}</text>` : ""}
       `;
     })
@@ -296,18 +239,53 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const prompt = String(body?.prompt || "").trim();
     const withWater = typeof body?.withWater === "boolean" ? body.withWater : undefined;
-
     if (!prompt) {
       return NextResponse.json({ error: "Пустой prompt" }, { status: 400 });
     }
 
     await new Promise((resolve) => setTimeout(resolve, 1200));
 
-    const parsed = parsePrompt(prompt, withWater);
-    const svg = generateMapSvg(parsed);
+    const brain = runBrain(prompt, withWater);
+    const parsed: ParsedPrompt = {
+      originalPrompt: prompt,
+      region: mapTargetToRegion(brain.detectedTargetSlug),
+      style: mapStyle(brain.detectedStyle),
+      labels: brain.detectedLabels,
+      colorfulness: estimateColorfulness(prompt, brain.intelligence),
+      variation: brain.detectedVariation,
+      withWater: brain.detectedWater,
+      intelligence: brain.intelligence
+    };
+
+    const svg = generateMapSvg(parsed, brain.detectedTargetSlug);
     const image = `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 
-    return NextResponse.json({ ok: true, image, debug: parsed });
+    const memory = await insertBrainMemory({
+      prompt,
+      normalizedPrompt: brain.normalizedPrompt,
+      detectedIntent: brain.detectedIntent,
+      detectedTargetSlug: brain.detectedTargetSlug,
+      detectedStyle: brain.detectedStyle,
+      detectedLabels: brain.detectedLabels,
+      detectedWater: brain.detectedWater,
+      detectedVariation: brain.detectedVariation,
+      brainScore: brain.brainScore,
+      tokenCount: brain.tokens.length,
+      generatorMode: "tool_brain"
+    });
+
+    return NextResponse.json({
+      ok: true,
+      image,
+      debug: {
+        ...parsed,
+        target: brain.detectedTargetSlug,
+        normalizedPrompt: brain.normalizedPrompt,
+        tokenCount: brain.tokens.length,
+        brainScore: brain.brainScore,
+        memory
+      }
+    });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "Внутренняя ошибка" }, { status: 500 });
